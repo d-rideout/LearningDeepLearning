@@ -1,6 +1,7 @@
 !#define MPI
 #define ETA .2
 #define MAX_TRY 1000
+#define NNEURONS 1
 
 program dl
 implicit none
@@ -22,8 +23,8 @@ integer, dimension(2:15) :: x = [(i, i=2,15)], y = [1,1,0,1,0,1,0,0,0,1,0,1,0,0]
 real, dimension(0:3) :: in
 
 ! Neural Network
-real, dimension(4) :: a
-real :: b, z !, eta=.1
+real, dimension(4,NNEURONS) :: a
+real, dimension(NNEURONS) :: b, z !, eta=.1
 
 ! Outcome
 integer :: nwrong=1, try=0
@@ -64,51 +65,51 @@ integer :: nwrong=1, try=0
      try = try + 1
 
      ! Loop over data
-  do i=2, 15
-     ! Compute input 
-     ! OMG this is annoying!  I should precompute this.
-     ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
-     do j=0, 3
-        if (iand(i, shiftl(1,j)) > 0) then
-           in(j) = 1
+     do i=2, 15
+        ! Compute input 
+        ! OMG this is annoying!  I should precompute this.
+        ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
+        do j=0, 3
+           if (iand(i, shiftl(1,j)) > 0) then
+              in(j) = 1
+           else
+              in(j) = 0
+           endif
+        end do
+
+        print *
+        print '(I2.2,A6,4f6.2)', i, ': in =', in
+        ! print '(I2.2,A1,4f3.0)', i, ':', in
+        print '(I2.2,A6,4f6.2)', i, ':  a =', a
+
+        ! Compute output on data
+        z = sum(a*in) + b
+        print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a*in, ' + b =', z
+
+        ! Learn?
+        if (z>0) then
+           print *, "prime"
+           if (y(i)==1) then
+              print *, 'correct!'
+           else
+              call learn(a, b, in, -1., nwrong)
+           end if
         else
-           in(j) = 0
-        endif
-     end do
-
-     print *
-     print '(I2.2,A6,4f6.2)', i, ': in =', in
-     ! print '(I2.2,A1,4f3.0)', i, ':', in
-     print '(I2.2,A6,4f6.2)', i, ':  a =', a
-
-     ! Compute output on data
-     z = sum(a*in) + b
-     print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a*in, ' + b =', z
-
-     ! Learn?
-     if (z>0) then
-        print *, "prime"
-        if (y(i)==1) then
-           print *, 'correct!'
-        else
-           call learn(a, b, in, -1., nwrong)
+           print *, "composite"
+           if (y(i)==0) then
+              print *, 'correct!'
+           else 
+              call learn(a, b, in, 1., nwrong)
+           end if
         end if
-     else
-        print *, "composite"
-        if (y(i)==0) then
-           print *, 'correct!'
-        else 
-           call learn(a, b, in, 1., nwrong)
-        end if
-     end if
 
-  end do
+     end do ! loop over data
 
-  ! Outcome
-  print *, '-------------------------------------------------------------------'
-  print *, 'try =', try, 'num wrong =', nwrong
+     ! Outcome
+     print *, '----------------------------------------------------------------'
+     print *, 'try =', try, 'num wrong =', nwrong
   
-  end do
+  end do ! learning iteration
 
   
 #ifdef MPI
