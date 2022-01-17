@@ -1,7 +1,11 @@
-#define MPI
+!#define MPI
 
 program dl
 implicit none
+
+#if 0
+print *, shiftl(1,2), iand(3,6), iand(shiftl(1,2), 7)
+#else
 
 #ifdef MPI
 include 'mpif.h'
@@ -9,10 +13,11 @@ include 'mpif.h'
 integer :: ierr, nproc
 #endif
 
-integer :: i, myproc
+integer :: i, j, myproc
 
 ! Ground Truth
 integer, dimension(2:7) :: x = [(i, i=2,7)], y = [1,1,0,1,0,1]
+real, dimension(0:2) :: in
 
 ! Neural Network
 real, dimension(1) :: a, b  
@@ -45,15 +50,31 @@ real, dimension(1) :: a, b
   b = 2*b-1
   if (myproc==0) print *, ' mod:', a, b
 
-  ! Compute output on data
-  
-  ! iand()
+  do i=2, 7
+     ! Compute input 
+     ! OMG this is annoying!  I should precompute this.
+     ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
+     do j=0, 2
+        if (iand(i, shiftl(1,j)) > 0) then
+           in(j) = 1
+        else
+           in(j) = 0
+        endif
+     end do
 
-  
+     print *, i, ':', in
+
+    ! Compute output on data
+
+  end do
+  !in = [( iand(i+2, shiftl(1,i)), i=0,5)]
+  !print *, 'in =', in
+
 
   
 #ifdef MPI
   call MPI_FINALIZE(ierr)
+#endif
 #endif
 end program dl
 
