@@ -20,7 +20,7 @@ integer, dimension(2:7) :: x = [(i, i=2,7)], y = [1,1,0,1,0,1]
 real, dimension(0:2) :: in
 
 ! Neural Network
-real, dimension(1) :: a, b  
+real, dimension(3) :: a, b  
 
 ! MPI initialization stuff
 #ifdef MPI
@@ -45,10 +45,10 @@ real, dimension(1) :: a, b
 !  call srand(0)
   call random_number(a)
   call random_number(b)
-  if (myproc==0) print *, 'orig:', a, b
+  !if (myproc==0) print *, 'orig:', a, b
   a = 2*a-1
   b = 2*b-1
-  if (myproc==0) print *, ' mod:', a, b
+  if (myproc==0) print *, 'a=', a, 'b=', b
 
   do i=2, 7
      ! Compute input 
@@ -65,7 +65,8 @@ real, dimension(1) :: a, b
      print *, i, ':', in
 
     ! Compute output on data
-
+     print *, a*in+b
+     !sum(a*in)
   end do
   !in = [( iand(i+2, shiftl(1,i)), i=0,5)]
   !print *, 'in =', in
