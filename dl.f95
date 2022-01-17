@@ -24,6 +24,9 @@ real, dimension(0:2) :: in
 real, dimension(3) :: a
 real :: b, z !, eta=.1
 
+! Outcome
+integer :: nwrong=1, try=0
+
 ! MPI initialization stuff
 #ifdef MPI
   call MPI_INIT(ierr)
@@ -53,6 +56,10 @@ real :: b, z !, eta=.1
   b = 2*b-1
   if (myproc==0) print *, '          a =', a, 'b =', b
 
+  do while (nwrong>0)
+     nwrong = 0
+     try = try + 1
+     
   do i=2, 7
      ! Compute input 
      ! OMG this is annoying!  I should precompute this.
@@ -78,21 +85,23 @@ real :: b, z !, eta=.1
         if (y(i)==1) then
            print *, 'correct!'
         else
-           call learn(a, b, in, -1.)
+           call learn(a, b, in, -1., nwrong)
         end if
      else
         print *, "composite"
         if (y(i)==0) then
            print *, 'correct!'
         else 
-           call learn(a, b, in, 1.)
+           call learn(a, b, in, 1., nwrong)
         end if
      end if
 
   end do
-  !in = [( iand(i+2, shiftl(1,i)), i=0,5)]
-  !print *, 'in =', in
 
+  ! Outcome
+  print *, '***** try', try, 'num wrong', nwrong
+  
+  end do
 
   
 #ifdef MPI
@@ -102,15 +111,19 @@ real :: b, z !, eta=.1
 end program dl
 
 
-subroutine learn(a, b, in, sign)
+subroutine learn(a, b, in, sign, nwrong)
 real, dimension(3), intent(inout) :: a
 real, intent(inout) :: b
 real, dimension(3), intent(in) :: in
 real, intent(in) :: sign
+integer, intent(inout) :: nwrong
 
-a = a - ETA*in
-b = b + ETA*sign
-print *, 'learn'
+print *, 'learn:', sign
+print *, ETA, a, b
+
+nwrong = nwrong + 1
+a = a + ETA*in*sign
+b = b + ETA*sign/2.
 print *, ETA, a, b
 
 end subroutine learn
