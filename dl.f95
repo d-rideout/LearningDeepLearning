@@ -16,15 +16,15 @@ include 'mpif.h'
 integer :: ierr, nproc
 #endif
 
-integer :: i, j, myproc
+integer :: i, j, myproc, ni
 
 ! Ground Truth
 integer, dimension(2:15) :: x = [(i, i=2,15)], y = [1,1,0,1,0,1,0,0,0,1,0,1,0,0]
 real, dimension(0:3) :: in
 
 ! Neural Network
-real, dimension(4,NNEURONS) :: a
-real, dimension(NNEURONS) :: b, z !, eta=.1
+real, dimension(4,1:NNEURONS) :: a
+real, dimension(1:NNEURONS) :: b, z !, eta=.1
 
 ! Outcome
 integer :: nwrong=1, try=0
@@ -77,17 +77,20 @@ integer :: nwrong=1, try=0
            endif
         end do
 
-        print *
-        print '(I2.2,A6,4f6.2)', i, ': in =', in
-        ! print '(I2.2,A1,4f3.0)', i, ':', in
-        print '(I2.2,A6,4f6.2)', i, ':  a =', a
+        ! Loop over neurons
+        do ni = 1, NNEURONS
+           print *, 'neuron', ni
+           print '(I2.2,A6,4f6.2)', i, ': in =', in
+           ! print '(I2.2,A1,4f3.0)', i, ':', in
+           print '(I2.2,A6,4f6.2)', i, ':  a =', a(:,ni)
 
-        ! Compute output on data
-        z = sum(a*in) + b
-        print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a*in, ' + b =', z
-
+           ! Compute output on data
+           z(ni) = sum(a(:,ni)*in) + b(ni)
+           print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a(:,ni)*in, ' + b =', z(ni)
+        end do
+           
         ! Learn?
-        if (z>0) then
+        if (sum(z)>0) then
            print *, "prime"
            if (y(i)==1) then
               print *, 'correct!'
@@ -120,8 +123,8 @@ end program dl
 
 
 subroutine learn(a, b, in, sign, nwrong)
-real, dimension(4), intent(inout) :: a
-real, intent(inout) :: b
+real, dimension(4,1:NNEURONS), intent(inout) :: a
+real, dimension(1:NNEURONS), intent(inout) :: b
 real, dimension(4), intent(in) :: in
 real, intent(in) :: sign
 integer, intent(inout) :: nwrong
@@ -129,9 +132,11 @@ integer, intent(inout) :: nwrong
 print *, 'learn:', sign, ETA
 print *, a, 'b =', b
 
-nwrong = nwrong + 1
-a = a + ETA*in*sign
-b = b + ETA*sign
-print *, a, 'b =', b
+!!$nwrong = nwrong + 1
+!!$a = a + ETA*in*sign
+!!$b = b + ETA*sign
+!!$print *, a, 'b =', b
+
+call exit
 
 end subroutine learn
