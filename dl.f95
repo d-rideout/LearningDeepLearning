@@ -108,16 +108,18 @@ integer :: nwrong=1, try=0
               ! print '(I2.2,A1,4f3.0)', i, ':', in
               print '(I2.2,A6,4f6.2)', num, ': a1 =', a1(:,ni)           
               print '(i2.2, a6, 4f6.2, a7, f6.2)', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
+
            else
               print '(a7, i2.2, a6, 4f6.2, a7, f6.2)', 'proc 1:', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
            end if
         end do
 
         ! Send results to process 0
-        if (myproc==1) then
+        if (myproc>0) then
            call mpi_send(z1, NNEURONS/NPROCs, MPI_INT, 0, 0, MPI_COMM_WORLD, ierr)
         else
-           call mpi_recv(z1all, NNEURONS/NPROCs, MPI_INT, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+           z1all(1:NNEURONS/NPROCs) = z1
+           call mpi_recv(z1all(NNEURONS/NPROCs+1:), NNEURONS/NPROCs, MPI_INT, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
         endif
         if (myproc==0) print *, 'z1all =', z1all
 
