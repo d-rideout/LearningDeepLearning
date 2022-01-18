@@ -34,6 +34,7 @@ real, dimension(NBITS,NNEURONS/NPROCs) :: a1
 real, dimension(NNEURONS/NPROCs) :: b1, z1
 real, dimension(NNEURONS) :: a2
 real :: b2, z2
+real, dimension(NNEURONS) :: z1all = 0 ! just bung all to proc 0 for now
 
 ! Outcome
 integer :: nwrong=1, try=0
@@ -61,7 +62,7 @@ integer :: nwrong=1, try=0
 
   ! Initialize Neural Network
   call random_seed(size = i)
-  print *, 'seed size:', i
+  if (myproc==0) print *, 'seed size:', i
   call random_seed(put=[(j*(myproc+1), j=1, i)])
 
   call random_number(a1)
@@ -74,7 +75,7 @@ integer :: nwrong=1, try=0
   b1 = 2*b1-1
   b2 = 2*b2-1
   !if (myproc==0)
-  print *, '          a =', a1, 'b =', b1
+  if (myproc==0) print *, '          a =', a1, 'b =', b1
 
   ! Main loop
   do while (nwrong>0)
@@ -97,31 +98,44 @@ integer :: nwrong=1, try=0
 
         ! Loop over layer 1 neurons
         do ni = 1, NNEURONS/NPROCs
-           print *, 'neuron', ni
-           print '(I2.2,A6,4f6.2)', num, ': in =', in
-           ! print '(I2.2,A1,4f3.0)', i, ':', in
-           print '(I2.2,A6,4f6.2)', num, ': a1 =', a1(:,ni)
 
            ! Compute output on data
            z1(ni) = sum(a1(:,ni)*in) + b1(ni)
-           print '(i2.2, a6, 4f6.2, a6, f6.2)', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
+
+           if (myproc==0) then
+              print *, 'neuron', ni
+              print '(I2.2,A6,4f6.2)', num, ': in =', in
+              ! print '(I2.2,A1,4f3.0)', i, ':', in
+              print '(I2.2,A6,4f6.2)', num, ': a1 =', a1(:,ni)           
+              print '(i2.2, a6, 4f6.2, a7, f6.2)', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
+           else
+              print '(a7, i2.2, a6, 4f6.2, a7, f6.2)', 'proc 1:', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
+           end if
         end do
+
+        ! Send results to process 0
+        if (myproc==1) then
+           call mpi_send(z1, NNEURONS/NPROCs, MPI_INT, 0, 0, MPI_COMM_WORLD, ierr)
+        else
+           call mpi_recv(z1all, NNEURONS/NPROCs, MPI_INT, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+        endif
+        if (myproc==0) print *, 'z1all =', z1all
 
         ! Feed to layer 2 neuron
 
         
         ! Learn?
         if (sum(z1)>0) then
-           print *, "prime"
+           if (myproc==0) print *, "prime"
            if (y(num)==1) then
-              print *, 'correct!'
+              if (myproc==0) print *, 'correct!'
            else
               !call learn(a1, b1, in, -1., nwrong)
            end if
         else
-           print *, "composite"
+           if (myproc==0) print *, "composite"
            if (y(num)==0) then
-              print *, 'correct!'
+              if (myproc==0) print *, 'correct!'
            else 
               !call learn(a1, b1, in, 1., nwrong)
            end if
@@ -130,9 +144,10 @@ integer :: nwrong=1, try=0
      end do ! loop over data
 
      ! Outcome
-     print *, '----------------------------------------------------------------'
-     print *, 'try =', try, 'num wrong =', nwrong
-  
+     if (myproc==0) then
+        print *, '----------------------------------------------------------------'
+        print *, 'try =', try, 'num wrong =', nwrong
+     end if
   end do ! learning iteration
 
   
