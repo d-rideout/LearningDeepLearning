@@ -2,6 +2,7 @@
 #define ETA .2
 #define MAX_TRY 1000
 #define NNEURONS 1
+#define NBITS 4
 
 ! input --> NNeurons --> output neuron
 
@@ -18,15 +19,17 @@ include 'mpif.h'
 integer :: ierr, nproc
 #endif
 
-integer :: i, j, myproc, ni
+integer :: i, j, myproc, ni, num
 
 ! Ground Truth
 integer, dimension(2:15) :: x = [(i, i=2,15)], y = [1,1,0,1,0,1,0,0,0,1,0,1,0,0]
 real, dimension(0:3) :: in
 
 ! Neural Network
-real, dimension(4,NNEURONS,2) :: a
-real, dimension(NNEURONS,2) :: b, z !, eta=.1
+real, dimension(NBITS,NNEURONS) :: a1
+real, dimension(NNEURONS) :: a2
+real, dimension(NNEURONS) :: b1, z1
+real :: b2, z2
 
 ! Outcome
 integer :: nwrong=1, try=0
@@ -53,12 +56,16 @@ integer :: nwrong=1, try=0
   print *, 'seed size:', i
   call random_seed(put=[(0, j=1, i)])
 
-  call random_number(a)
-  call random_number(b)
+  call random_number(a1)
+  call random_number(a2)
+  call random_number(b1)
+  call random_number(b2)
   !if (myproc==0) print *, 'orig:', a, b
-  a = 2*a-1
-  b = 2*b-1
-  if (myproc==0) print *, '          a =', a, 'b =', b
+  a1 = 2*a1-1
+  a2 = 2*a2-1
+  b1 = 2*b1-1
+  b2 = 2*b2-1
+  if (myproc==0) print *, '          a =', a1, 'b =', b1
 
   ! Main loop
   do while (nwrong>0)
@@ -67,12 +74,12 @@ integer :: nwrong=1, try=0
      try = try + 1
 
      ! Loop over data
-     do i=2, 15
+     do num=2, 15
         ! Compute input 
         ! OMG this is annoying!  I should precompute this.
         ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
         do j=0, 3
-           if (iand(i, shiftl(1,j)) > 0) then
+           if (iand(num, shiftl(1,j)) > 0) then
               in(j) = 1
            else
               in(j) = 0
@@ -82,29 +89,32 @@ integer :: nwrong=1, try=0
         ! Loop over layer 1 neurons
         do ni = 1, NNEURONS
            print *, 'neuron', ni
-           print '(I2.2,A6,4f6.2)', i, ': in =', in
+           print '(I2.2,A6,4f6.2)', num, ': in =', in
            ! print '(I2.2,A1,4f3.0)', i, ':', in
-           print '(I2.2,A6,4f6.2)', i, ':  a =', a(:,ni,1)
+           print '(I2.2,A6,4f6.2)', num, ':  a1 =', a1(:,ni)
 
            ! Compute output on data
-           z(ni,1) = sum(a(:,ni,1)*in) + b(ni,1)
-           print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a(:,ni,1)*in, ' + b =', z(ni,1)
+           z1(ni) = sum(a1(:,ni)*in) + b1(ni)
+           print '(i2.2, a6, 4f6.2, a6, f6.2)', num, ':  z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
         end do
-           
+
+        ! Feed to layer 2 neuron
+
+        
         ! Learn?
-        if (sum(z)>0) then
+        if (sum(z1)>0) then
            print *, "prime"
-           if (y(i)==1) then
+           if (y(num)==1) then
               print *, 'correct!'
            else
-              call learn(a, b, in, -1., nwrong)
+              !call learn(a1, b1, in, -1., nwrong)
            end if
         else
            print *, "composite"
-           if (y(i)==0) then
+           if (y(num)==0) then
               print *, 'correct!'
            else 
-              call learn(a, b, in, 1., nwrong)
+              !call learn(a1, b1, in, 1., nwrong)
            end if
         end if
 
@@ -125,14 +135,14 @@ end program dl
 
 
 subroutine learn(a, b, in, sign, nwrong)
-real, dimension(4,NNEURONS,2), intent(inout) :: a
-real, dimension(NNEURONS,2), intent(inout) :: b
-real, dimension(4), intent(in) :: in
-real, intent(in) :: sign
-integer, intent(inout) :: nwrong
+!!$real, dimension(4,NNEURONS,2), intent(inout) :: a
+!!$real, dimension(NNEURONS,2), intent(inout) :: b
+!!$real, dimension(4), intent(in) :: in
+!!$real, intent(in) :: sign
+!!$integer, intent(inout) :: nwrong
 
-print *, 'learn:', sign, ETA
-print *, a, 'b =', b
+!!$print *, 'learn:', sign, ETA
+!!$print *, a, 'b =', b
 
 !!$nwrong = nwrong + 1
 !!$a = a + ETA*in*sign
