@@ -3,6 +3,8 @@
 #define MAX_TRY 1000
 #define NNEURONS 1
 
+! input --> NNeurons --> output neuron
+
 program dl
 implicit none
 
@@ -23,8 +25,8 @@ integer, dimension(2:15) :: x = [(i, i=2,15)], y = [1,1,0,1,0,1,0,0,0,1,0,1,0,0]
 real, dimension(0:3) :: in
 
 ! Neural Network
-real, dimension(4,1:NNEURONS) :: a
-real, dimension(1:NNEURONS) :: b, z !, eta=.1
+real, dimension(4,NNEURONS,2) :: a
+real, dimension(NNEURONS,2) :: b, z !, eta=.1
 
 ! Outcome
 integer :: nwrong=1, try=0
@@ -77,16 +79,16 @@ integer :: nwrong=1, try=0
            endif
         end do
 
-        ! Loop over neurons
+        ! Loop over layer 1 neurons
         do ni = 1, NNEURONS
            print *, 'neuron', ni
            print '(I2.2,A6,4f6.2)', i, ': in =', in
            ! print '(I2.2,A1,4f3.0)', i, ':', in
-           print '(I2.2,A6,4f6.2)', i, ':  a =', a(:,ni)
+           print '(I2.2,A6,4f6.2)', i, ':  a =', a(:,ni,1)
 
            ! Compute output on data
-           z(ni) = sum(a(:,ni)*in) + b(ni)
-           print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a(:,ni)*in, ' + b =', z(ni)
+           z(ni,1) = sum(a(:,ni,1)*in) + b(ni,1)
+           print '(i2.2, a6, 4f6.2, a6, f6.2)', i, ':  z =', a(:,ni,1)*in, ' + b =', z(ni,1)
         end do
            
         ! Learn?
@@ -123,8 +125,8 @@ end program dl
 
 
 subroutine learn(a, b, in, sign, nwrong)
-real, dimension(4,1:NNEURONS), intent(inout) :: a
-real, dimension(1:NNEURONS), intent(inout) :: b
+real, dimension(4,NNEURONS,2), intent(inout) :: a
+real, dimension(NNEURONS,2), intent(inout) :: b
 real, dimension(4), intent(in) :: in
 real, intent(in) :: sign
 integer, intent(inout) :: nwrong
