@@ -1,10 +1,15 @@
-!#define MPI
+#define MPI
 #define ETA .2
-#define MAX_TRY 1000
-#define NNEURONS 1
+#define MAX_TRY 100
+#define NNEURONS 2
 #define NBITS 4
+#ifdef MPI
+#define NPROCs 2
+#else
+#define NPROCs 1
+#endif
 
-! input --> NNeurons --> output neuron
+! input layer ==> NNeurons ==> output neuron --> conclusion
 
 program dl
 implicit none
@@ -15,20 +20,19 @@ print *, shiftl(1,2), iand(3,6), iand(shiftl(1,2), 7)
 
 #ifdef MPI
 include 'mpif.h'
-
-integer :: ierr, nproc
+integer :: ierr
 #endif
 
-integer :: i, j, myproc, ni, num
+integer :: i, j, myproc, ni, num, nproc=1
 
 ! Ground Truth
 integer, dimension(2:15) :: x = [(i, i=2,15)], y = [1,1,0,1,0,1,0,0,0,1,0,1,0,0]
 real, dimension(0:3) :: in
 
 ! Neural Network
-real, dimension(NBITS,NNEURONS) :: a1
+real, dimension(NBITS,NNEURONS/NPROCs) :: a1
+real, dimension(NNEURONS/NPROCs) :: b1, z1
 real, dimension(NNEURONS) :: a2
-real, dimension(NNEURONS) :: b1, z1
 real :: b2, z2
 
 ! Outcome
@@ -43,6 +47,10 @@ integer :: nwrong=1, try=0
 #else
   myproc = 0
 #endif
+  if (nproc /= NPROCs) then
+     print *, 'Please set NPROCs to number of processes'
+     call exit
+  end if
   
   ! Show Ground Truth
   !print *, (i, ':', y(i), '|', i=2,7)
@@ -54,7 +62,7 @@ integer :: nwrong=1, try=0
   ! Initialize Neural Network
   call random_seed(size = i)
   print *, 'seed size:', i
-  call random_seed(put=[(0, j=1, i)])
+  call random_seed(put=[(j*(myproc+1), j=1, i)])
 
   call random_number(a1)
   call random_number(a2)
@@ -65,7 +73,8 @@ integer :: nwrong=1, try=0
   a2 = 2*a2-1
   b1 = 2*b1-1
   b2 = 2*b2-1
-  if (myproc==0) print *, '          a =', a1, 'b =', b1
+  !if (myproc==0)
+  print *, '          a =', a1, 'b =', b1
 
   ! Main loop
   do while (nwrong>0)
@@ -78,7 +87,7 @@ integer :: nwrong=1, try=0
         ! Compute input 
         ! OMG this is annoying!  I should precompute this.
         ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
-        do j=0, 3
+        do j=0, NBITS-1
            if (iand(num, shiftl(1,j)) > 0) then
               in(j) = 1
            else
@@ -87,15 +96,15 @@ integer :: nwrong=1, try=0
         end do
 
         ! Loop over layer 1 neurons
-        do ni = 1, NNEURONS
+        do ni = 1, NNEURONS/NPROCs
            print *, 'neuron', ni
            print '(I2.2,A6,4f6.2)', num, ': in =', in
            ! print '(I2.2,A1,4f3.0)', i, ':', in
-           print '(I2.2,A6,4f6.2)', num, ':  a1 =', a1(:,ni)
+           print '(I2.2,A6,4f6.2)', num, ': a1 =', a1(:,ni)
 
            ! Compute output on data
            z1(ni) = sum(a1(:,ni)*in) + b1(ni)
-           print '(i2.2, a6, 4f6.2, a6, f6.2)', num, ':  z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
+           print '(i2.2, a6, 4f6.2, a6, f6.2)', num, ': z1 =', a1(:,ni)*in, ' + b1 =', z1(ni)
         end do
 
         ! Feed to layer 2 neuron
