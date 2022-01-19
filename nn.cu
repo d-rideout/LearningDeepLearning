@@ -3,7 +3,10 @@
 #include "nn.h"
 
 __global__ void mykernel(int *a, int *b, int *c) {
+  __shared__ int temp[...];
   int i = threadIdx.x;
+
+  __syncthreads(); // sync threads between staging data and doing computation?
 
   c[i] = a[i] + b[i];
 }
@@ -52,9 +55,19 @@ int main(void) {
 
 #if 0
 
+    Application can query and select GPUs:
+cudaGetDeviceCount(int *count)
+cudaSetDevice(int device)
+cudaGetDevice(int *device)
+cudaGetDeviceProperties(cudaDeviceProp *prop, int device)
+
+  cudaMemcpy() can copy from one device to another
+
   cudaMalloc(&da, size);
   cudaMalloc(&db, size);
   cudaMalloc(&dsum, size);
+
+
 
   for (int i=0; i<N; ++i) {
     a[i] = i;
@@ -65,6 +78,19 @@ int main(void) {
   cudaMemcpy(db, b, size, cudaMemcpyHostToDevice);
 
   mykernel<<<1,N>>>(da, db, dsum);
+
+  // Does each block somehow finish separately, and return here?  Doesn't make sense to me.  This code is serial as far as CUDA is concerned, no??
+  // I think he is imagining that the host code is multithreaded.
+
+  // Not sure that is it either?  Below barrier waits for all "preceding CUDA calls to complete"
+cudaDeviceSynchronize()
+  // cudaMemcpy() begins and ends with implicit cudaDeviceSynchronize()
+  // (else use cudaMemcpyAsync())
+
+  cudaError_t cerr = cudaGetLastError();
+  char *cerrst = cudaGetErrorString(cerr);
+  or better:
+  printf("%s\n", cudaGetErrorString(cudaGetLastError()));
 
   //printf("Hello World! %d %d %d %d\n", a, b, c, d);
 

@@ -8,3 +8,8 @@ for each number:
 
 NBITS => NNeurons layer 1 neurons => layer 2 neuron -> output
 
+On GPU: (eventually) each block gets one data element
+   	entire network forward and back done in one block
+   	each thread gets one neuron
+
+(could vary architecture or hyperparameters across MPI processes)
