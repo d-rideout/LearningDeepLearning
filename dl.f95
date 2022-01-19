@@ -1,8 +1,6 @@
+#include "nn.h"
 #define MPI
-#define ETA .2
 #define MAX_TRY 100
-#define NNEURONS 2
-#define NBITS 4
 #ifdef MPI
 #define NPROCs 2
 #else
@@ -12,7 +10,15 @@
 ! input layer ==> NNeurons ==> output neuron --> conclusion
 
 program dl
+use, intrinsic :: iso_c_binding
 implicit none
+
+interface
+   integer(c_int) function compute_x(foo) bind(C, 'compute_x')
+     use, intrinsic :: iso_c_binding, only : c_int
+     integer(c_int) :: foo
+   end function compute_x
+end interface
 
 #if 0
 print *, shiftl(1,2), iand(3,6), iand(shiftl(1,2), 7)
@@ -89,7 +95,7 @@ integer :: nwrong=1, try=0
         ! OMG this is annoying!  I should precompute this.
         ! in = (iand(i, shiftl(1,j)), j=0,2) chokes for some reason
         do j=0, NBITS-1
-           if (iand(num, shiftl(1,j)) > 0) then
+           if (1==1) then ! iand(num, shiftl(1,j)) > 0) then
               in(j) = 1
            else
               in(j) = 0
