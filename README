@@ -26,3 +26,7 @@ Sign is opposite that of output.
 For now call the entire kernel for each datapoint.  (Can't distribute
 data among blocks until they are independent.)
 Yes this is really stupid for now!
+
+I think I can decompose the inner products in each layer across threads,
+though their size varies with layer.
+Let's just use the larger and waste some threads.
