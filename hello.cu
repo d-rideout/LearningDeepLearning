@@ -1,39 +1,43 @@
 #include <stdio.h>
+#define N 4
 
-__global__ void mykernel(int *a, int *b, int *c, int *d) {
-  *d = threadIdx.x;
+__global__ void mykernel(int *a, int *b, int *c) {
+  int i = threadIdx.x;
 
-  *c = *a + *b;
+  c[i] = a[i] + b[i];
 }
 
+
 int main(void) {
-  int a, b, c=0, d;
-  int *da, *db, *dc, *dd;
+  int a[N], b[N], sum[N];
+  int *da, *db, *dsum;
+  size_t size = N*sizeof(int);
 
-  cudaMalloc(&da, sizeof(int));
-  cudaMalloc(&db, sizeof(int));
-  cudaMalloc(&dc, sizeof(int));
-  cudaMalloc(&dd, sizeof(int));
+  cudaMalloc(&da, size);
+  cudaMalloc(&db, size);
+  cudaMalloc(&dsum, size);
 
-  a = 2;
-  b = 9;
+  for (int i=0; i<N; ++i) {
+    a[i] = i;
+    b[i] = 2*i+1;
+  }
 
-  cudaMemcpy(da, &a, sizeof(int), cudaMemcpyHostToDevice);
-  cudaMemcpy(db, &b, sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(da, a, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(db, b, size, cudaMemcpyHostToDevice);
 
-  mykernel<<<1,2>>>(da, db, dc, dd);
+  mykernel<<<1,N>>>(da, db, dsum);
 
-  printf("Hello World! %d %d %d %d\n", a, b, c, d);
+  //printf("Hello World! %d %d %d %d\n", a, b, c, d);
 
-  cudaMemcpy(&c, dc, sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(&d, dd, sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(sum, dsum, size, cudaMemcpyDeviceToHost);
+  //cudaMemcpy(&d, dd, sizeof(int), cudaMemcpyDeviceToHost);
 
-  printf("Hello World! %d %d %d %d\n", a, b, c, d);
+  //printf("Hello World! %d %d %d %d\n", a, b, c, d);
+  for (int i=0; i<N; ++i) printf("%d + %d = %d\n", a[i], b[i], sum[i]);
 
   cudaFree(da);
   cudaFree(db);
-  cudaFree(dc);
-  cudaFree(dd);
+  cudaFree(dsum);
 
   return 0;
 }
