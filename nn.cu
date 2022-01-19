@@ -7,6 +7,7 @@
 
 __global__ void learn(float *truth, float *in, float *a1, float *a2) {
   __shared__ int temp[NNEURONS][NTHREADS];
+  __shared__ float z[NNEURONS];
   int i = threadIdx.x; // index of dot product
   int j = threadIdx.y; // index of neuron
 
@@ -19,8 +20,10 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2) {
   /* Compute inner product */
   if (i<NBITS+1) temp[j][i] = a1[AI(j,i)] * in[i];
   __syncthreads(); // sync threads between staging data and doing computation?
-  
-  
+  if (!i) {
+    z[j] = temp[j][0];
+    for (i=1; i<NBITS+1; ++i) z[j] += temp[j][i];
+  }
 
 
 }
