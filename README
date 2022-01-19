@@ -13,3 +13,16 @@ On GPU: (eventually) each block gets one data element
    	each thread gets one neuron
 
 (could vary architecture or hyperparameters across MPI processes)
+
+<0 ==> composite
+>0 ==> prime
+truth is +/- 1 if got it wrong
+
+Let's use truth-output as error function.
+Slope is +/- 1.
+Depends only on sign of output.
+Sign is opposite that of output.
+
+For now call the entire kernel for each datapoint.  (Can't distribute
+data among blocks until they are independent.)
+Yes this is really stupid for now!

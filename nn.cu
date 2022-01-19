@@ -2,21 +2,35 @@
 #include <stdlib.h>
 #include "nn.h"
 
-__global__ void mykernel(int *a, int *b, int *c) {
-  __shared__ int temp[...];
-  int i = threadIdx.x;
+#define VERB 1
 
-  __syncthreads(); // sync threads between staging data and doing computation?
 
-  c[i] = a[i] + b[i];
+__global__ void learn(float *truth, float *a1, float *a2) {
+
+  //__shared__ int temp[...];
+  //int i = threadIdx.x;
+
+  *truth += .5;
+
+  //__syncthreads(); // sync threads between staging data and doing computation?
+
+  //c[i] = a[i] + b[i];
 }
 
 
 int main(void) {
-  int i, j;
+  int i; //, j;
 
   /* MPI */
-  int nproc=1, myproc=0;
+  //int nproc=1, myproc=0;
+
+  /* GPU */
+  int ngpu, mygpu;
+  // cudaGetDeviceProperties(cudaDeviceProp *prop, int device)
+  cudaGetDeviceCount(&ngpu);
+  cudaGetDevice(&mygpu);
+  printf("GPU %d of %d GPUs\n", mygpu, ngpu);
+  // cudaSetDevice(int device)
 
   /* Compute ground truth */
   const float y[] = {0,0,1.,1.,-1.,1.,-1.,1.,-1.,-1.,-1.,1.,-1.,1.,-1.,-1.};
@@ -26,7 +40,7 @@ int main(void) {
     in[num][0] = 1.;
     for (i=1; i<5; ++i) in[num][i] = num & 1<<i ? 1. : 0.;
   }
-  if (1) for (num=2; num<16; ++num) {
+  if (VERB) for (num=2; num<16; ++num) {
     printf("%2d %3.0f : ", num, y[num]);
     printf("%2.f %2.f %2.f %2.f\n", in[num][0], in[num][1], in[num][2],
 	   in[num][3]);
@@ -50,62 +64,41 @@ int main(void) {
     nwrong = 0;
     ++sweep;
 
+    /* Loop over data */
     // in principle should randomize order but seems like too much trouble
-    
+    for (num=2; num<1<<NBITS; ++num) {
 
-#if 0
+      /* Stage nn computation on GPU */
+      float *dtruth, *da1, *da2;
+      cudaMalloc(&dtruth, sizeof(float));
+      cudaMalloc(&da1, sizeof(float)*(NBITS+1)*NNEURONS);
+      cudaMalloc(&da2, sizeof(float)*NNEURONS);
+      cudaMemcpy(dtruth, &y[num], sizeof(float), cudaMemcpyHostToDevice);
+      //cudaMemcpy(db, b, size, cudaMemcpyHostToDevice);
 
-    Application can query and select GPUs:
-cudaGetDeviceCount(int *count)
-cudaSetDevice(int device)
-cudaGetDevice(int *device)
-cudaGetDeviceProperties(cudaDeviceProp *prop, int device)
+      /* Run the kernel */
+      learn<<<1,1>>>(dtruth, da1, da2);
 
-  cudaMemcpy() can copy from one device to another
+      /* See how it went */
+      cudaError_t cerr = cudaGetLastError();
+      //char *cerrst = cudaGetErrorString(cerr);
+      //or better:
+      if (cerr) printf("CUDA error string: [%s]\n", cudaGetErrorString(cerr));
 
-  cudaMalloc(&da, size);
-  cudaMalloc(&db, size);
-  cudaMalloc(&dsum, size);
-
-
-
-  for (int i=0; i<N; ++i) {
-    a[i] = i;
-    b[i] = 2*i+1;
-  }
-
-  cudaMemcpy(da, a, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(db, b, size, cudaMemcpyHostToDevice);
-
-  mykernel<<<1,N>>>(da, db, dsum);
-
-  // Does each block somehow finish separately, and return here?  Doesn't make sense to me.  This code is serial as far as CUDA is concerned, no??
-  // I think he is imagining that the host code is multithreaded.
-
-  // Not sure that is it either?  Below barrier waits for all "preceding CUDA calls to complete"
-cudaDeviceSynchronize()
-  // cudaMemcpy() begins and ends with implicit cudaDeviceSynchronize()
-  // (else use cudaMemcpyAsync())
-
-  cudaError_t cerr = cudaGetLastError();
-  char *cerrst = cudaGetErrorString(cerr);
-  or better:
-  printf("%s\n", cudaGetErrorString(cudaGetLastError()));
-
-  //printf("Hello World! %d %d %d %d\n", a, b, c, d);
-
-  cudaMemcpy(sum, dsum, size, cudaMemcpyDeviceToHost);
+      /* Copy results back to host */
+      float junk;
+      cudaMemcpy(&junk, dtruth, sizeof(float), cudaMemcpyDeviceToHost);
   //cudaMemcpy(&d, dd, sizeof(int), cudaMemcpyDeviceToHost);
 
-  //printf("Hello World! %d %d %d %d\n", a, b, c, d);
-  for (int i=0; i<N; ++i) printf("%d + %d = %d\n", a[i], b[i], sum[i]);
+      printf("Hello World! %f\n", junk);
+      //for (int i=0; i<N; ++i) printf("%d + %d = %d\n", a[i], b[i], sum[i]);
 
-  cudaFree(da);
-  cudaFree(db);
-  cudaFree(dsum);
-#endif
+      //  cudaFree(da);
+      //  cudaFree(db);
+      //  cudaFree(dsum);
 
-  }
+    } // loop over data
+  } // training loop
 
   return 0;
 }
