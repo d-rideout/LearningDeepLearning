@@ -1,5 +1,6 @@
-//#include <stdio.h>
-//#define N 4
+#include <stdio.h>
+#include "nn.h"
+
 
 __global__ void mykernel(int *a, int *b, int *c) {
   int i = threadIdx.x;
@@ -9,9 +10,20 @@ __global__ void mykernel(int *a, int *b, int *c) {
 
 
 int main(void) {
-  int a[N], b[N], sum[N];
-  int *da, *db, *dsum;
-  size_t size = N*sizeof(int);
+  const float y[] = {0,0,1.,1.,-1.,1.,-1.,1.,-1.,-1.,-1.,1.,-1.,1.,-1.,-1.};
+  int i;
+  unsigned char num;
+  float in[16][4];
+
+  /* Compute ground truth */
+  for (num=2; num<16; ++num)
+    for (i=0; i<4; ++i) in[num][i] = num & 1<<i ? 1. : 0.;
+  for (num=2; num<16; ++num) {
+    printf("%2d %3.0f : ", num, y[num]);
+    printf("%2.f %2.f %2.f %2.f\n", in[num][0], in[num][1], in[num][2], in[num][3]);
+  }
+
+#if 0
 
   cudaMalloc(&da, size);
   cudaMalloc(&db, size);
@@ -38,6 +50,7 @@ int main(void) {
   cudaFree(da);
   cudaFree(db);
   cudaFree(dsum);
+#endif
 
   return 0;
 }
