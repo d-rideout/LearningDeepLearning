@@ -29,14 +29,10 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   /* Forward Propagate */
   /* Layer 1 */
 
-  /* Populate local memory */
-  // if (ti<NBITS+1) temp[ni,ti] = a1[AI(ni,ti)];
-
   /* Compute inner product */
-  //if (ti<NBITS+1) always true now
   if (ni!=NNEURONS) temp[ni][ti] = a1[AI(ni,ti)] * in[ti];
 #ifdef DEBUG
-  //debug[DI(ni,ti)] = temp[ni][ti];
+  debug[DI(ni,ti)] = temp[ni][ti];
 #endif
   __syncthreads();
   if (!ti) {
@@ -62,7 +58,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
     for (int i=1; i<NNEURONS+1; ++i) *out += temp[i][0];
   }
 #ifdef DEBUG
-  //debug[DI(ni,ti)] = a2[ni]; //temp[1][0];
+  //debug[DI(ni,ti)] = z[2]; // a2[ni]; //temp[1][0];
 #endif
 }
 
@@ -90,7 +86,7 @@ int main(void) {
   float in[nnum][NBITS+1];
   for (num=2; num<nnum; ++num) {
     in[num][0] = 1.;
-    for (i=1; i<NBITS+1; ++i) in[num][i] = num & 1<<i ? 1. : 0.;
+    for (i=1; i<NBITS+1; ++i) in[num][i] = num & 1<<(i-1) ? 1. : 0.;
   }
   if (VERB) for (num=2; num<nnum; ++num) {
     printf("%2d %3.0f : ", num, y[num]);
@@ -126,15 +122,15 @@ int main(void) {
   float *debug, *ddebug;
   debug = (float *) malloc(sf*(NBITS+1)*(NNEURONS+1));
   //memset(debug, 'x', sf*(NBITS+1)*(NNEURONS+1));
-      for (i=0; i<NNEURONS+1; ++i) {
-	printf("nurn %d:", i);
-	for (j=0; j<NBITS+1; ++j) {
-	  debug[DI(i,j)] = -9.;
-	  printf(" %9f", debug[DI(i,j)]);
-	}
-	printf("\n");
-      }
-
+  for (i=0; i<NNEURONS+1; ++i) {
+    printf("nurn %d:", i);
+    for (j=0; j<NBITS+1; ++j) {
+      debug[DI(i,j)] = -9.;
+      printf(" %9f", debug[DI(i,j)]);
+    }
+    printf("\n");
+  }
+  printf("-----------------------------------\n");
   cudaMalloc(&ddebug, sf*(NBITS+1)*(NNEURONS+1));
 #endif
 
@@ -157,9 +153,10 @@ int main(void) {
     /* Loop over data */
     // in principle should randomize order but seems like too much trouble
     for (num=2; num<1<<NBITS; ++num) {
+      printf("num = %d :\n", num);
+      //      for (i=0; i<
 
       /* Stage nn computation on GPU */
-
       cudaMemcpy(dtruth, &y[num], sf, cudaMemcpyHostToDevice);
       cudaMemcpy(din, in[num], (NBITS+1)*sf, cudaMemcpyHostToDevice);
       cudaMemcpy(da1, a1, (NBITS+1)*NNEURONS*sf, cudaMemcpyHostToDevice);
