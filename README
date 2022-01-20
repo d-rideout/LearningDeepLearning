@@ -23,6 +23,8 @@ Slope is +/- 1.
 Depends only on sign of output.
 Sign is opposite that of output.
 
+But I think that error function does not work well.  Seeks output > truth.  Which can be true even when getting wrong answers.  Somehow I am confusing myself.
+
 For now call the entire kernel for each datapoint.  (Can't distribute
 data among blocks until they are independent.)
 Yes this is really stupid for now!
@@ -30,3 +32,20 @@ Yes this is really stupid for now!
 I think I can decompose the inner products in each layer across threads,
 though their size varies with layer.
 Let's just use the larger and waste some threads.
+
+--------------------------------------------------------------------------------
+HOST:
+y[0..1<<NBITS-1]	ground truth
+
+
+GPU:
+ni 0..NNEURONS
+ti 0..NBITS    
+
+in[0..NBITS]   in[0] = 1. (in[] on host is array of input for all data)
+
+a1[0..NNEURONS-1][0..NBITS]   a1[ni][0] is bias of neuron ni
+			      a1[ni][i>0] is weight i of neuron ni
+z[0..NNEURONS]	z[0] = 1.
+a2[0..NNEURONS] a2[0] = bias of layer-2 neuron
+
