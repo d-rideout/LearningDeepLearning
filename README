@@ -23,7 +23,7 @@ Slope is +/- 1.
 Depends only on sign of output.
 Sign is opposite that of output.
 
-But I think that error function does not work well.  Seeks output > truth.  Which can be true even when getting wrong answers.  Somehow I am confusing myself.
+But I think that error function does not work well.  Seeks output > truth.  Which can be true even when getting wrong answers.  Somehow I am confusing myself.  I'll do it LDL's way.
 
 For now call the entire kernel for each datapoint.  (Can't distribute
 data among blocks until they are independent.)
@@ -39,12 +39,13 @@ y[0..1<<NBITS-1]	ground truth
 
 
 GPU:
-ni 0..NNEURONS
+ni 0..NNEURONS	ni=0 does not appear in a1[] on host -- need to subtract 1
 ti 0..NBITS    
 
 in[0..NBITS]   in[0] = 1. (in[] on host is array of input for all data)
 
-a1[0..NNEURONS-1][0..NBITS]   a1[ni][0] is bias of neuron ni
+a1[0..NNEURONS][0..NBITS]  a1[0][] has no meaning on CPU -- just to pad same as on GPU
+			   a1[ni][0] is bias of neuron ni
 			      a1[ni][i>0] is weight i of neuron ni
 z[0..NNEURONS]	z[0] = 1.
 a2[0..NNEURONS] a2[0] = bias of layer-2 neuron

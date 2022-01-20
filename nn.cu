@@ -5,6 +5,8 @@
 
 #define VERB 1
 #define DEBUG 1
+#define NDEBUG 5
+#define DI(h,i,j) (h*(NNEURONS+1)*(NBITS+1)+(NBITS+1)*i + j)
 #define NTHREADS NBITS+1 // I don't need below
 // (NBITS+1>NNEURONS ? NBITS+1 : NNEURONS) // max num inputs per neuron
 
@@ -13,12 +15,12 @@ void cudaerr(const char *msg) {
   cudaError_t cerr = cudaGetLastError();
   //char *cerrst = cudaGetErrorString(cerr);
   //or better:
-  if (cerr) printf("CUDA error from %s : %s\n", msg, cudaGetErrorString(cerr));
+  if (cerr) printf("CUDA error from [%s] : %s\n", msg, cudaGetErrorString(cerr));
 }
 
 /* Output weights */
 void display_weights(float *a1, float *a2) {
-  for (int i=0; i<NNEURONS; ++i) {
+  for (int i=0; i<NNEURONS+1; ++i) {
     printf("\na1[%d] =", i);
     for (int j=0; j<NBITS+1; ++j) printf("%10f", a1[AI(i,j)]);
   }
@@ -29,13 +31,12 @@ void display_weights(float *a1, float *a2) {
 
 
 #ifdef DEBUG
-#define DI(i,j) ((NBITS+1)*i+j)
 __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out, float *debug) {
 #else
 __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out) {
 #endif
-  __shared__ float temp[NNEURONS+1][NTHREADS];
-  __shared__ float z[NNEURONS+1]; // FIX: +1 offset will be confusing!
+  __shared__ float temp[NNEURONS+1][NBITS+1];
+  __shared__ float z[NNEURONS+1];
   int ti = threadIdx.x; // index of dot product
   int ni = threadIdx.y; // index of neuron
 
@@ -43,20 +44,25 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   /* Layer 1 */
 
   /* Compute inner product */
-  if (ni!=NNEURONS) temp[ni][ti] = a1[AI(ni,ti)] * in[ti];
+  //if (ni!=NNEURONS) 
+  //if (ni) 
+  temp[ni][ti] = a1[AI(ni,ti)] * in[ti];
+    //else temp[ni][ti] = -99.;
 #ifdef DEBUG
-  debug[DI(ni,ti)] = temp[ni][ti];
+  debug[DI(0,ni,ti)] = temp[ni][ti];
 #endif
   __syncthreads();
-  if (!ti) {
-    z[0] = 1.;
-    // z[1..NNEURONS] z inner product on each neuron
-    z[ni+1] = temp[ni][0];
-    for (int i=1; i<NBITS+1; ++i) z[ni+1] += temp[ni][i];
+
+  z[0] = 1.;
+  // z[1..NNEURONS] z inner product on each neuron
+  if (ni>0) {
+    z[ni] = temp[ni][0];
+    for (int i=1; i<NBITS+1; ++i) z[ni] += temp[ni][i];
   }
+
 #ifdef DEBUG
-  else z[1] = ti;
-  //debug[DI(ni,ti)] = z[1]; correct inner product of 1st neuron
+  //else z[1] = ti;
+  debug[DI(1,ni,ti)] = z[1]; //correct inner product of 1st neuron
 #endif
   __syncthreads();
 
@@ -64,32 +70,41 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   // z[0] = 1 z[i] = z[neuron+1]
 
   /* Compute inner product */
-  if (!ti) temp[ni][0] = a2[ni] * z[ni];
+  //if (!ti) 
+  temp[ni][0] = a2[ni] * z[ni];
   __syncthreads();
-  if (!ti && !ni) {
+#ifdef DEBUG
+  debug[DI(2,ni,ti)] = temp[ni][0];
+#endif
+  //if (!ti && !ni) {
     *out = temp[0][0];
     for (int i=1; i<NNEURONS+1; ++i) *out += temp[i][0];
-  }
+    __syncthreads();
+    //}
 #ifdef DEBUG
-  //debug[DI(ni,ti)] = z[2]; // a2[ni]; //temp[1][0];
+    debug[DI(3,ni,ti)] = temp[1][0];
 #endif
 
-  assert(*out);
+  //assert(*out);
   if (*truth * *out > 0) return; // signs agree
 
   /* Back Propagate */
   // derivative of error = truth-output
-  float de = *out > 0 ? -1. : 1; //sign(-*out);
+  float de = *out - *truth; // > 0 ? -1. : 1; //sign(-*out);
   // error of layer 2 neuron
   float err2 = de;
-  debug[DI(ni,ti)] = z[ni];
 
   // Error of each neuron in layer 1
-  temp[ni][0] = err2*a2[ni]; // error of neuron ni
+  temp[ni][ti] = err2*a2[ni]; // error of neuron ni
   
   /* Adjust weights */
-  a2[ni] -= ETA*z[ni]*err2;
-  a1[AI(ni,ti)] -= ETA*in[ti]*temp[ni][0];
+#ifdef DEBUG
+  debug[DI(4,ni,ti)] = temp[ni][ti]; // ETA*in[ti]*temp[ni][ti];
+#endif
+  if (!ti) a2[ni] -= ETA*z[ni]*err2;
+  a1[AI(ni,ti)] -= ETA*in[ti]*temp[ni][ti];
+  //__syncthreads();
+  //debug[DI(ni,ti)] = a2[ni]; //err2; //z[ni]; //temp[ni][ti]; // ETA*in[ti]*temp[ni][ti];
 }
 
 
@@ -127,10 +142,11 @@ int main(void) {
   /* Define neural network */
   if (DEBUG) srand48(0);
   float *a1, *a2;
-  a1 = (float *) malloc((NBITS+1)*NNEURONS*sf);
+  a1 = (float *) malloc((NBITS+1)*(NNEURONS+1)*sf);
   //z1 = (float *) malloc(NNEURONS*sf);
   a2 = (float *) malloc((NNEURONS+1)*sf);
-  for (i=0; i<NNEURONS; ++i) for (j=1; j<NBITS+1; ++j) {
+  for (j=0; j<NBITS+1; ++j) a1[AI(0,j)] = 0.; // initialize 0-neuron to 0
+  for (i=1; i<NNEURONS+1; ++i) for (j=1; j<NBITS+1; ++j) {
     a1[AI(i,0)] = 0.; // start biases at 0
     if (DEBUG) a1[AI(i,j)] = i + .1*j;
     else a1[AI(i,j)] = 2*drand48()-1;
@@ -143,29 +159,30 @@ int main(void) {
   out = (float *) malloc(sf); // stack seems okay too
 
 #ifdef DEBUG
+  int h;
   display_weights(a1, a2);
 
   //float debug[NNEURONS][NBITS+1], *ddebug;
   float *debug, *ddebug;
-  debug = (float *) malloc(sf*(NBITS+1)*(NNEURONS+1));
+  debug = (float *) malloc(sf*(NBITS+1)*(NNEURONS+1)*NDEBUG);
   //memset(debug, 'x', sf*(NBITS+1)*(NNEURONS+1));
   printf("-----------------------------------\n");
-  for (i=0; i<NNEURONS+1; ++i) {
+  for (h=0; h<NDEBUG; ++h) for (i=0; i<NNEURONS+1; ++i) {
     printf("nurn %d:", i);
     for (j=0; j<NBITS+1; ++j) {
-      debug[DI(i,j)] = -9.;
-      printf(" %9f", debug[DI(i,j)]);
+      debug[DI(h,i,j)] = -h;
+      printf(" %9f", debug[DI(h,i,j)]);
     }
     printf("\n");
   }
   printf("-----------------------------------\n");
-  cudaMalloc(&ddebug, sf*(NBITS+1)*(NNEURONS+1));
+  cudaMalloc(&ddebug, sf*(NBITS+1)*(NNEURONS+1)*NDEBUG);
 #endif
 
   float *dtruth, *din, *da1, *da2, *dout;
   cudaMalloc(&dtruth, sf);
   cudaMalloc(&din, sf*(NBITS+1));
-  cudaMalloc(&da1, sf*(NBITS+1)*NNEURONS);
+  cudaMalloc(&da1, sf*(NBITS+1)*(NNEURONS+1));
   cudaMalloc(&da2, sf*(NNEURONS+1));
   cudaMalloc(&dout, sf);
   
@@ -187,7 +204,7 @@ int main(void) {
       /* Stage nn computation on GPU */
       cudaMemcpy(dtruth, &y[num], sf, cudaMemcpyHostToDevice);
       cudaMemcpy(din, in[num], (NBITS+1)*sf, cudaMemcpyHostToDevice);
-      cudaMemcpy(da1, a1, (NBITS+1)*NNEURONS*sf, cudaMemcpyHostToDevice);
+      cudaMemcpy(da1, a1, (NBITS+1)*(NNEURONS+1)*sf, cudaMemcpyHostToDevice);
       cudaMemcpy(da2, a2, (NNEURONS+1)*sf, cudaMemcpyHostToDevice);
 
       /* Run the kernel */
@@ -203,16 +220,16 @@ int main(void) {
       /* Copy results back to host */
       cudaMemcpy(out, dout, sf, cudaMemcpyDeviceToHost);
       cudaerr("out copy to host");
-      cudaMemcpy(a1, da1, (NBITS+1)*NNEURONS*sf, cudaMemcpyDeviceToHost);
+      cudaMemcpy(a1, da1, (NBITS+1)*(NNEURONS+1)*sf, cudaMemcpyDeviceToHost);
       cudaerr("a1 copy to host");
       cudaMemcpy(a2, da2, (NNEURONS+1)*sf, cudaMemcpyDeviceToHost);
       cudaerr("a2 copy to host");
 #ifdef DEBUG
-      cudaMemcpy(debug, ddebug, sf*(NBITS+1)*(NNEURONS+1), cudaMemcpyDeviceToHost);
+      cudaMemcpy(debug, ddebug, sf*(NBITS+1)*(NNEURONS+1)*NDEBUG, cudaMemcpyDeviceToHost);
       cudaerr("debug copy to host");
-      for (i=0; i<NNEURONS+1; ++i) {
-	printf("nurn %d:", i);
-	for (j=0; j<NBITS+1; ++j) printf(" %9f", debug[DI(i,j)]);
+      for (h=0; h<NDEBUG; ++h) for (i=0; i<NNEURONS+1; ++i) {
+	  printf("%d nurn %d:", h, i);
+	for (j=0; j<NBITS+1; ++j) printf(" %9f", debug[DI(h,i,j)]);
 	printf("\n");
       }
 #endif
@@ -229,8 +246,11 @@ int main(void) {
   cudaFree(dtruth);
   cudaFree(din);
   cudaFree(da1);
-  cudaFree(da1);
-  cudaFree(da1);
+  cudaFree(da2);
+  cudaFree(out);
+#ifdef DEBUG
+  cudaFree(debug);
+#endif
 
   return 0;
 }
