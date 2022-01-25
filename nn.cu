@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "nn.h"
 
-#define VERB 1
+//#define VERB 1
 //#define DEBUG 1
 #define NDEBUG 5
 #define DI(h,i,j) (h*(NNEURONS+1)*(NBITS+1)+(NBITS+1)*i + j)
@@ -152,12 +152,12 @@ int main(void) {
   for (i=1; i<NNEURONS+1; ++i) for (j=1; j<NBITS+1; ++j) {
     a1[AI(i,0)] = 0.; // start biases at 0
     if (DEBUG) a1[AI(i,j)] = i + .1*j;
-    else a1[AI(i,j)] = 2*drand48()-1;
+    else a1[AI(i,j)] = 2.*drand48()-1;
   }
   //for (i=0; i<NNEURONS; ++i) z1[i] = 2*drand48()-1;
   a2[0] = 0.;
   for (i=1; i<NNEURONS+1; ++i) if (DEBUG) a2[i] = -(i*.1+.01);
-    else a2[i] = 2*drand48()-1;
+    else a2[i] = 2.*drand48()-1;
   float *out; // output value
   out = (float *) malloc(sf); // stack seems okay too
 
@@ -192,20 +192,22 @@ int main(void) {
   /* Training loop */
   unsigned int sweep=0;
   unsigned char nwrong=1;
-  
+  if (VERB) display_weights(a1, a2);
   while (nwrong) {
     if (++sweep > MAX_SWEEP) {
       printf("Too many sweeps.\n");
       break;
     }
-    printf("Sweep %u\n", sweep);
+    if (VERB) printf("\n");
+    printf("Sweep %u\t", sweep);
+    if (VERB) printf("\n");
     nwrong = 0;
     //++sweep;
 
     /* Loop over data */
     // in principle should randomize order but seems like too much trouble
     for (num=2; num<1<<NBITS; ++num) {
-      printf("num = %d :\n", num);
+      if (VERB) printf("num = %d :\n", num);
       //      for (i=0; i<
 
       /* Stage nn computation on GPU */
@@ -241,17 +243,17 @@ int main(void) {
       }
 #endif
 
-      printf("NN output: %f\n", *out);
+      if (VERB) printf("NN output: %f\n", *out);
 
       if (*out*y[num] < 0) {
-	display_weights(a1, a2);
+	if (VERB) display_weights(a1, a2);
 	++nwrong;
       }
 
       if (DEBUG) return 2;
 
     } // loop over data
-    printf("%u wrong\n\n", nwrong);
+    printf("%u wrong\n", nwrong);
   } // training loop
 
   printf("Finished.\n");
