@@ -4,7 +4,7 @@
 #include "nn.h"
 
 #define VERB 1
-#define DEBUG 1
+//#define DEBUG 1
 #define NDEBUG 5
 #define DI(h,i,j) (h*(NNEURONS+1)*(NBITS+1)+(NBITS+1)*i + j)
 #define NTHREADS NBITS+1 // I don't need below
@@ -20,17 +20,20 @@ void cudaerr(const char *msg) {
 
 /* Output weights */
 void display_weights(float *a1, float *a2) {
-  for (int i=0; i<NNEURONS+1; ++i) {
-    printf("\na1[%d] =", i);
-    for (int j=0; j<NBITS+1; ++j) printf("%10f", a1[AI(i,j)]);
+  unsigned char i=1;
+  if (DEBUG) i=0;
+  for (; i<NNEURONS+1; ++i) {
+    printf("a1[%d] =", i);
+    for (unsigned char j=0; j<NBITS+1; ++j) printf("%10f", a1[AI(i,j)]);
+    printf("\n");
   }
-  printf("\na2    =");
-  for (int i=0; i<NNEURONS+1; ++i) printf("%10f", a2[i]);
+  printf("a2    =");
+  for (i=0; i<NNEURONS+1; ++i) printf("%10f", a2[i]);
   printf("\n");
 }
 
 
-#ifdef DEBUG
+#if DEBUG==1
 __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out, float *debug) {
 #else
 __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out) {
@@ -48,7 +51,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   //if (ni) 
   temp[ni][ti] = a1[AI(ni,ti)] * in[ti];
     //else temp[ni][ti] = -99.;
-#ifdef DEBUG
+#if DEBUG==1
   debug[DI(0,ni,ti)] = temp[ni][ti];
 #endif
   __syncthreads();
@@ -60,7 +63,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
     for (int i=1; i<NBITS+1; ++i) z[ni] += temp[ni][i];
   }
 
-#ifdef DEBUG
+#if DEBUG==1
   //else z[1] = ti;
   debug[DI(1,ni,ti)] = z[1]; //correct inner product of 1st neuron
 #endif
@@ -73,7 +76,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   //if (!ti) 
   temp[ni][0] = a2[ni] * z[ni];
   __syncthreads();
-#ifdef DEBUG
+#if DEBUG==1
   debug[DI(2,ni,ti)] = temp[ni][0];
 #endif
   //if (!ti && !ni) {
@@ -81,7 +84,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
     for (int i=1; i<NNEURONS+1; ++i) *out += temp[i][0];
     __syncthreads();
     //}
-#ifdef DEBUG
+#if DEBUG==1
     debug[DI(3,ni,ti)] = temp[1][0];
 #endif
 
@@ -98,7 +101,7 @@ __global__ void learn(float *truth, float *in, float *a1, float *a2, float *out)
   temp[ni][ti] = err2*a2[ni]; // error of neuron ni
   
   /* Adjust weights */
-#ifdef DEBUG
+#if DEBUG==1
   debug[DI(4,ni,ti)] = temp[ni][ti]; // ETA*in[ti]*temp[ni][ti];
 #endif
   if (!ti) a2[ni] -= ETA*z[ni]*err2;
@@ -158,7 +161,7 @@ int main(void) {
   float *out; // output value
   out = (float *) malloc(sf); // stack seems okay too
 
-#ifdef DEBUG
+#if DEBUG==1
   int h;
   display_weights(a1, a2);
 
@@ -191,9 +194,13 @@ int main(void) {
   unsigned char nwrong=1;
   
   while (nwrong) {
-    if (sweep > MAX_SWEEP) return 1;
+    if (++sweep > MAX_SWEEP) {
+      printf("Too many sweeps.\n");
+      break;
+    }
+    printf("Sweep %u\n", sweep);
     nwrong = 0;
-    ++sweep;
+    //++sweep;
 
     /* Loop over data */
     // in principle should randomize order but seems like too much trouble
@@ -210,7 +217,7 @@ int main(void) {
       /* Run the kernel */
       //dim3 threads(NTHREADS,NNEURONS);
       dim3 threads(NBITS+1,NNEURONS+1);
-#ifdef DEBUG
+#if DEBUG==1
       learn<<<1,threads>>>(dtruth, din, da1, da2, dout, ddebug);
 #else
       learn<<<1,threads>>>(dtruth, din, da1, da2, dout);
@@ -224,7 +231,7 @@ int main(void) {
       cudaerr("a1 copy to host");
       cudaMemcpy(a2, da2, (NNEURONS+1)*sf, cudaMemcpyDeviceToHost);
       cudaerr("a2 copy to host");
-#ifdef DEBUG
+#if DEBUG==1
       cudaMemcpy(debug, ddebug, sf*(NBITS+1)*(NNEURONS+1)*NDEBUG, cudaMemcpyDeviceToHost);
       cudaerr("debug copy to host");
       for (h=0; h<NDEBUG; ++h) for (i=0; i<NNEURONS+1; ++i) {
@@ -236,19 +243,24 @@ int main(void) {
 
       printf("NN output: %f\n", *out);
 
-      if (*out*y[num] < 0) display_weights(a1, a2);
+      if (*out*y[num] < 0) {
+	display_weights(a1, a2);
+	++nwrong;
+      }
 
-      return 2;
+      if (DEBUG) return 2;
 
     } // loop over data
+    printf("%u wrong\n\n", nwrong);
   } // training loop
-  
+
+  printf("Finished.\n");
   cudaFree(dtruth);
   cudaFree(din);
   cudaFree(da1);
   cudaFree(da2);
   cudaFree(out);
-#ifdef DEBUG
+#if DEBUG==1
   cudaFree(debug);
 #endif
 

@@ -1,5 +1,7 @@
+dl : MPI with fortran binary (24jan022)
 dl.f95 : I started here; uses MPI (18jan022)
 hello.cu : learning to use CUDA (18jan022)
+nn : the CUDA binary (24jan022)
 nn.cu : Let's write a neural network code using CUDA (18jan022)
 nn.h : Let's put symbols into a header file (18jan022)
 --------------------------------------------------------------------------------
