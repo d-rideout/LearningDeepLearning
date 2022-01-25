@@ -23,12 +23,12 @@ void display_weights(float *a1, float *a2) {
   unsigned char i=1;
   if (DEBUG) i=0;
   for (; i<NNEURONS+1; ++i) {
-    printf("a1[%d] =", i);
-    for (unsigned char j=0; j<NBITS+1; ++j) printf("%10f", a1[AI(i,j)]);
+    printf("a1[%2d] =", i);
+    for (unsigned char j=0; j<NBITS+1; ++j) printf("%8.3f", a1[AI(i,j)]);
     printf("\n");
   }
   printf("a2    =");
-  for (i=0; i<NNEURONS+1; ++i) printf("%10f", a2[i]);
+  for (i=0; i<NNEURONS+1; ++i) printf("%7.2f", a2[i]);
   printf("\n");
 }
 

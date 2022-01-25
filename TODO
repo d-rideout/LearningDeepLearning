@@ -1,3 +1,8 @@
+* Not stable on 16 neurons! (24jan022)
+
 * Not return out from forward pass? (19jan022)
 * Put debug[] on the stack? (19jan022)
 * Less duplicate computation? (19jan022)
+
+* complex weights? (24jan022)
+* all data in sweep (24jan022)
